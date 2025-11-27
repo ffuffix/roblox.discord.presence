@@ -1,0 +1,16 @@
+[package]
+name = "roblox_discord_presence"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.0", features = ["full"] }
+reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+discord-rich-presence = "0.2"
+notify = "6.0"
+sysinfo = "0.30.13"
+crossbeam-channel = "0.5"
+regex = "1.10"
+dirs = "5.0"
