@@ -1,3 +1,6 @@
+// Hides the console window on Windows
+#![windows_subsystem = "windows"]
+
 mod util;
 
 use util::{
@@ -6,6 +9,7 @@ use util::{
     paths::RobloxType,
     watcher::{self, WatcherEvent},
     roblox_api,
+    notifier,
 };
 
 use tokio::time::{interval, Duration};
@@ -26,18 +30,21 @@ async fn main() {
     println!("The Watcher is watching");
 
     loop {
+        // Handle both events and log polling
         tokio::select! {
-            // 1. Handle Process Events (Started/Stopped)
             event = event_receiver.recv() => {
                 match event {
                     Some(WatcherEvent::RobloxStarted(rt)) => {
+                        // Reset last_place_id to force a refresh even if ID hasn't changed
+                        last_place_id.clear(); 
                         current_roblox_type = Some(rt);
+
                         if rt == RobloxType::Studio {
                             println!("Roblox Studio detected");
                             discord_client.update_presence("Roblox Studio", "Developing", "roblox_studio", None);
                         } else {
                             println!("Roblox Player detected");
-                            discord_client.update_presence("Roblox", "Loading...", "roblox_logo", None);
+                            discord_client.update_presence("Roblox", "Loading", "roblox_logo", None);
                         }
                     }
                     Some(WatcherEvent::RobloxClosed) => {
@@ -55,7 +62,7 @@ async fn main() {
             }
 
             _ = log_poll_interval.tick() => {
-                if current_roblox_type == Some(RobloxType::Player) {
+                if let Some(roblox_type) = current_roblox_type {
                     if let Some(id) = log_monitor.check_latest_log() {
                         if id != last_place_id {
                             println!("> Detected Place ID: {}", id);
@@ -64,17 +71,34 @@ async fn main() {
                             match roblox_api::get_game_details(&id).await {
                                 Ok(details) => {
                                     println!("> Fetched: {} by {}", details.name, details.creator_name);
-                                    let state_str = format!("by {}", details.creator_name);
-                                    let stats_str = format!("Playing: {} | Capacity: {}", format_num(details.playing), details.max_players);
+                                    
+                                    match roblox_type {
+                                        RobloxType::Player => {
+                                            let state_str = format!("by {}", details.creator_name);
+                                            let stats_str = format!("Playing: {} | Capacity: {}", format_num(details.playing), details.max_players);
+                                            
+                                            discord_client.update_presence(
+                                                &details.name, 
+                                                &state_str,
+                                                &details.thumbnail_url,
+                                                Some(&stats_str) 
+                                            );
+                                        },
+                                        RobloxType::Studio => {
+                                            let state_str = "Editing";
 
-                                    discord_client.update_presence(
-                                        &details.name, 
-                                        &state_str,
-                                        &details.thumbnail_url,
-                                        Some(&stats_str) 
-                                    );
+                                            discord_client.update_presence(
+                                                &details.name, 
+                                                state_str,
+                                                &details.thumbnail_url,
+                                                Some("Developing")
+                                            );
+                                        }
+                                    }
                                 }
-                                Err(e) => eprintln!("Failed to get game details: {}", e),
+                                Err(e) => {
+                                    notifier::error("Game Details Error", &format!("Failed to fetch details: {}", e));
+                                },
                             }
                         }
                     }

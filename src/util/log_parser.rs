@@ -1,5 +1,4 @@
 use regex::Regex;
-use std::collections::HashMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::Read;
 use std::path::PathBuf;
@@ -15,6 +14,7 @@ const FILE_SHARE_WRITE: u32 = 2;
 #[cfg(target_os = "windows")]
 const FILE_SHARE_DELETE: u32 = 4;
 
+use super::notifier;
 use super::paths;
 
 pub struct LogReader {
@@ -29,7 +29,7 @@ impl LogReader {
 
         #[cfg(target_os = "windows")]
         opts.share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE);
-        
+
         let file = opts.open(log_path)?;
 
         Ok(LogReader {
@@ -70,10 +70,11 @@ pub fn get_place_id_from_line(line: &str) -> Option<String> {
     ];
 
     for pattern in &patterns {
-        let re = Regex::new(pattern).unwrap();
-        if let Some(caps) = re.captures(line) {
-            if let Some(id) = caps.get(1) {
-                return Some(id.as_str().to_string());
+        if let Ok(re) = Regex::new(pattern) {
+            if let Some(caps) = re.captures(line) {
+                if let Some(id) = caps.get(1) {
+                    return Some(id.as_str().to_string());
+                }
             }
         }
     }
@@ -99,13 +100,16 @@ impl LogMonitor {
         };
 
         if needs_new_reader {
-            println!("[LOGS] Switching to log file: {:?}", latest_path.file_name().unwrap());
+            println!(
+                "[LOGS] Switching to log file: {:?}",
+                latest_path.file_name().unwrap()
+            );
             match LogReader::new(&latest_path) {
                 Ok(reader) => {
                     self.reader = Some((latest_path.clone(), reader));
                 }
                 Err(e) => {
-                    eprintln!("[LOGS] Failed to open log: {}", e);
+                    notifier::error("Log Error", &format!("Failed to open log file: {}", e));
                     return None;
                 }
             }
@@ -130,16 +134,24 @@ impl LogMonitor {
 
 fn get_latest_log_path() -> Option<PathBuf> {
     let logs_dir = paths::roblox_logs()?;
-    
-    let mut entries: Vec<_> = fs::read_dir(logs_dir).ok()?
+
+    let mut entries: Vec<_> = fs::read_dir(logs_dir)
+        .ok()?
         .filter_map(|entry| entry.ok())
         .filter(|entry| {
-            entry.path().extension().map(|e| e == "log").unwrap_or(false)
+            entry
+                .path()
+                .extension()
+                .map(|e| e == "log")
+                .unwrap_or(false)
         })
         .collect();
 
     entries.sort_by_key(|entry| {
-        entry.metadata().and_then(|m| m.modified()).unwrap_or(SystemTime::UNIX_EPOCH)
+        entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .unwrap_or(SystemTime::UNIX_EPOCH)
     });
 
     entries.last().map(|e| e.path())

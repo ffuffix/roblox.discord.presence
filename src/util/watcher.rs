@@ -14,7 +14,7 @@ pub fn spawn_watcher() -> UnboundedReceiver<WatcherEvent> {
     let (tx, rx) = unbounded_channel();
 
     std::thread::spawn(move || {
-        // Only refresh processes, saves CPU
+        // Only refresh processes
         let mut system = System::new_with_specifics(
             RefreshKind::new().with_processes(ProcessRefreshKind::everything())
         );
@@ -30,9 +30,18 @@ pub fn spawn_watcher() -> UnboundedReceiver<WatcherEvent> {
                 let rtype = roblox_is_running.unwrap();
                 println!("[WATCHER] Process Started: {:?}", rtype);
                 let _ = tx.send(WatcherEvent::RobloxStarted(rtype));
-            } else if roblox_is_running.is_none() && roblox_was_running.is_some() {
+            } 
+
+            else if roblox_is_running.is_none() && roblox_was_running.is_some() {
                 println!("[WATCHER] Process Closed");
                 let _ = tx.send(WatcherEvent::RobloxClosed);
+            }
+
+            else if let (Some(current), Some(previous)) = (roblox_is_running, roblox_was_running) {
+                if current != previous {
+                    println!("[WATCHER] Switched from {:?} to {:?}", previous, current);
+                    let _ = tx.send(WatcherEvent::RobloxStarted(current));
+                }
             }
 
             roblox_was_running = roblox_is_running;
