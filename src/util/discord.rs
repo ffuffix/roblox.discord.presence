@@ -52,6 +52,13 @@ impl DiscordClient {
         false
     }
 
+    fn reset_start_time(&mut self) {
+        self.start_time = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_secs();
+    }
+
     pub fn update_presence(
         &mut self,
         details: &str,
@@ -62,6 +69,8 @@ impl DiscordClient {
         if !self.ensure_connected() {
             return;
         }
+
+        self.reset_start_time();
 
         if let Some(client) = self.client.as_mut() {
             let mut assets = activity::Assets::new()
