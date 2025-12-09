@@ -40,11 +40,11 @@ There's currently no settings you can edit while using this application, however
    ```
 3. Navigate to the project directory:
    ```bash
-    cd roblox.discord.presence
+   cd roblox.discord.presence
     ```
 4. Build the project using Cargo:
    ```bash
-    cargo build --release
+   cargo build --release
     ```
 5. The compiled binary will be located in the `target/release` directory!
 
