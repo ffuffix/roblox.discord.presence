@@ -15,3 +15,12 @@ crossbeam-channel = "0.5"
 regex = "1.10"
 dirs = "5.0"
 notify-rust = "4.11.7"
+
+# Settings UI
+rfd = "0.13"
+tray-icon = "0.19"
+tao = "0.30"
+
+# Config persistence
+toml = "0.8"
+auto-launch = "0.5.0"

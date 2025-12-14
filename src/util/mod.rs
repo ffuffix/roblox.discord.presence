@@ -4,3 +4,6 @@ pub mod paths;
 pub mod roblox_api;
 pub mod watcher;
 pub mod notifier;
+pub mod settings;
+pub mod tray;
+pub mod ui;

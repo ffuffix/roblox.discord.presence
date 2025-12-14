@@ -1,4 +1,3 @@
-// Hides the console window on Windows
 #![windows_subsystem = "windows"]
 
 mod util;
@@ -10,12 +9,84 @@ use util::{
     watcher::{self, WatcherEvent},
     roblox_api,
     notifier,
+    settings::Settings,
+    tray,
 };
 
 use tokio::time::{interval, Duration};
+use tao::event_loop::{EventLoop, ControlFlow};
+use tray_icon::menu::MenuEvent;
+use auto_launch::AutoLaunchBuilder;
 
-#[tokio::main]
-async fn main() {
+fn main() {
+    let event_loop = EventLoop::new();
+    
+    let mut settings = Settings::load();
+    
+    let tray_handles = tray::setup_tray(&settings);
+    
+    let auto = AutoLaunchBuilder::new()
+        .set_app_name("Roblox Discord Presence")
+        .set_app_path(std::env::current_exe().unwrap().to_str().unwrap())
+        .set_use_launch_agent(true)
+        .build()
+        .unwrap();
+
+    if settings.auto_start {
+        let _ = auto.enable();
+    } else {
+        let _ = auto.disable();
+    }
+    
+    // Spawn async runtime
+    std::thread::spawn(|| {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async_main());
+    });
+
+    event_loop.run(move |_event, _, control_flow| {
+        *control_flow = ControlFlow::WaitUntil(std::time::Instant::now() + std::time::Duration::from_millis(50));
+
+        if let Ok(event) = MenuEvent::receiver().try_recv() {
+            match event.id.as_ref() {
+                tray::MENU_QUIT_ID => {
+                    *control_flow = ControlFlow::Exit;
+                    std::process::exit(0);
+                }
+                tray::MENU_OPEN_CONFIG_ID => {
+                    let path = Settings::config_path();
+                    if let Some(parent) = path.parent() {
+                        if !parent.exists() {
+                            let _ = std::fs::create_dir_all(parent);
+                        }
+                        let _ = std::process::Command::new("explorer")
+                            .arg(parent)
+                            .spawn();
+                    }
+                }
+                tray::MENU_AUTO_START_ID => {
+                    settings.auto_start = !settings.auto_start;
+                    let _ = settings.save();
+                    tray_handles.auto_start.set_checked(settings.auto_start);
+                    
+                    if settings.auto_start {
+                        let _ = auto.enable();
+                    } else {
+                        let _ = auto.disable();
+                    }
+                }
+                tray::MENU_SHOW_CONSOLE_ID => {
+                    settings.show_console = !settings.show_console;
+                    let _ = settings.save();
+                    tray_handles.show_console.set_checked(settings.show_console);
+                }
+                _ => {}
+            }
+        }
+    });
+}
+
+async fn async_main() {
     let mut discord_client = DiscordClient::new();
     let mut log_monitor = LogMonitor::new();
     
@@ -26,36 +97,28 @@ async fn main() {
     
     let mut log_poll_interval = interval(Duration::from_secs(2));
     log_poll_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-
-    println!("The Watcher is watching");
-
+    
     loop {
-        // Handle both events and log polling
         tokio::select! {
             event = event_receiver.recv() => {
                 match event {
                     Some(WatcherEvent::RobloxStarted(rt)) => {
-                        // Reset last_place_id to force a refresh even if ID hasn't changed
                         last_place_id.clear(); 
                         current_roblox_type = Some(rt);
 
                         if rt == RobloxType::Studio {
-                            println!("Roblox Studio detected");
                             discord_client.update_presence("Roblox Studio", "Developing", "roblox_studio", None);
                         } else {
-                            println!("Roblox Player detected");
                             discord_client.update_presence("Roblox", "Loading", "roblox_logo", None);
                         }
                     }
                     Some(WatcherEvent::RobloxClosed) => {
-                        println!("Roblox closed");
                         discord_client.clear_presence();
                         log_monitor.clear();
                         current_roblox_type = None;
                         last_place_id.clear();
                     }
                     None => {
-                        println!("Watcher channel closed. Exiting");
                         break;
                     }
                 }
@@ -65,13 +128,10 @@ async fn main() {
                 if let Some(roblox_type) = current_roblox_type {
                     if let Some(id) = log_monitor.check_latest_log() {
                         if id != last_place_id {
-                            println!("> Detected Place ID: {}", id);
                             last_place_id = id.clone();
 
                             match roblox_api::get_game_details(&id).await {
                                 Ok(details) => {
-                                    println!("> Fetched: {} by {}", details.name, details.creator_name);
-                                    
                                     match roblox_type {
                                         RobloxType::Player => {
                                             let state_str = format!("by {}", details.creator_name);
