@@ -66,19 +66,30 @@ fn main() {
                     }
                     // Open the config file with the default editor
                     #[cfg(target_os = "windows")]
-                    let _ = std::process::Command::new("cmd")
-                        .args(&["/C", "start", "", path.to_str().unwrap_or("")])
-                        .spawn();
+                    {
+                        let _ = std::process::Command::new("cmd")
+                            .args(&["/C", "start", "", &path.to_string_lossy()])
+                            .spawn();
+                    }
                     
                     #[cfg(target_os = "macos")]
-                    let _ = std::process::Command::new("open")
-                        .arg(&path)
-                        .spawn();
+                    {
+                        let _ = std::process::Command::new("open")
+                            .arg(&path)
+                            .spawn();
+                    }
                     
                     #[cfg(target_os = "linux")]
-                    let _ = std::process::Command::new("xdg-open")
-                        .arg(&path)
-                        .spawn();
+                    {
+                        let _ = std::process::Command::new("xdg-open")
+                            .arg(&path)
+                            .spawn();
+                    }
+                    
+                    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+                    {
+                        eprintln!("Opening config file is not supported on this platform. Config file location: {}", path.display());
+                    }
                 }
                 tray::MENU_AUTO_START_ID => {
                     settings.auto_start = !settings.auto_start;
