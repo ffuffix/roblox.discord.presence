@@ -59,10 +59,26 @@ fn main() {
                         if !parent.exists() {
                             let _ = std::fs::create_dir_all(parent);
                         }
-                        let _ = std::process::Command::new("explorer")
-                            .arg(parent)
-                            .spawn();
                     }
+                    // Ensure the settings file exists before opening
+                    if !path.exists() {
+                        let _ = settings.save();
+                    }
+                    // Open the config file with the default editor
+                    #[cfg(target_os = "windows")]
+                    let _ = std::process::Command::new("cmd")
+                        .args(&["/C", "start", "", path.to_str().unwrap_or("")])
+                        .spawn();
+                    
+                    #[cfg(target_os = "macos")]
+                    let _ = std::process::Command::new("open")
+                        .arg(&path)
+                        .spawn();
+                    
+                    #[cfg(target_os = "linux")]
+                    let _ = std::process::Command::new("xdg-open")
+                        .arg(&path)
+                        .spawn();
                 }
                 tray::MENU_AUTO_START_ID => {
                     settings.auto_start = !settings.auto_start;
