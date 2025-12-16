@@ -42,7 +42,9 @@ impl Settings {
             _ => {
                 // Create default settings file if it doesn't exist
                 let default_settings = Self::default();
-                let _ = default_settings.save();
+                if let Err(e) = default_settings.save() {
+                    eprintln!("Failed to create default settings file: {}", e);
+                }
                 default_settings
             }
         }

@@ -62,7 +62,9 @@ fn main() {
                     }
                     // Ensure the settings file exists before opening
                     if !path.exists() {
-                        let _ = settings.save();
+                        if let Err(e) = settings.save() {
+                            notifier::error("Config Error", &format!("Failed to create config file: {}", e));
+                        }
                     }
                     // Open the config file with the default editor
                     #[cfg(target_os = "windows")]
@@ -88,7 +90,7 @@ fn main() {
                     
                     #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
                     {
-                        eprintln!("Opening config file is not supported on this platform. Config file location: {}", path.display());
+                        notifier::error("Config Error", &format!("Opening config file is not supported on this platform. Config file location: {}", path.display()));
                     }
                 }
                 tray::MENU_AUTO_START_ID => {
