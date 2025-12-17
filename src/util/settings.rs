@@ -29,7 +29,8 @@ impl Settings {
     }
 
     pub fn load() -> Self {
-        match Self::config_path().as_path() {
+        let config_path = Self::config_path();
+        match config_path.as_path() {
             path if path.exists() => {
                 match fs::read_to_string(path) {
                     Ok(content) => {
@@ -38,7 +39,14 @@ impl Settings {
                     Err(_) => Self::default(),
                 }
             }
-            _ => Self::default(),
+            _ => {
+                // Create default settings file if it doesn't exist
+                let default_settings = Self::default();
+                if let Err(e) = default_settings.save() {
+                    eprintln!("Failed to create default settings file: {}", e);
+                }
+                default_settings
+            }
         }
     }
 

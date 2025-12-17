@@ -59,9 +59,38 @@ fn main() {
                         if !parent.exists() {
                             let _ = std::fs::create_dir_all(parent);
                         }
-                        let _ = std::process::Command::new("explorer")
-                            .arg(parent)
+                    }
+                    // Ensure the settings file exists before opening
+                    if !path.exists() {
+                        if let Err(e) = settings.save() {
+                            notifier::error("Config Error", &format!("Failed to create config file: {}", e));
+                        }
+                    }
+                    // Open the config file with the default editor
+                    #[cfg(target_os = "windows")]
+                    {
+                        let _ = std::process::Command::new("cmd")
+                            .args(&["/C", "start", "", &path.to_string_lossy()])
                             .spawn();
+                    }
+                    
+                    #[cfg(target_os = "macos")]
+                    {
+                        let _ = std::process::Command::new("open")
+                            .arg(&path)
+                            .spawn();
+                    }
+                    
+                    #[cfg(target_os = "linux")]
+                    {
+                        let _ = std::process::Command::new("xdg-open")
+                            .arg(&path)
+                            .spawn();
+                    }
+                    
+                    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+                    {
+                        notifier::error("Config Error", &format!("Opening config file is not supported on this platform. Config file location: {}", path.display()));
                     }
                 }
                 tray::MENU_AUTO_START_ID => {
