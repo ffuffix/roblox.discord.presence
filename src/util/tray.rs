@@ -19,8 +19,9 @@ pub fn setup_tray(settings: &crate::util::settings::Settings) -> TrayHandles {
     
     let tray_menu = Menu::new();
     
-    let auto_start = CheckMenuItem::with_id(MENU_AUTO_START_ID, "Auto Start", settings.auto_start, true, None);
-    let show_console = CheckMenuItem::with_id(MENU_SHOW_CONSOLE_ID, "Show Console", settings.show_console, true, None);
+    // CheckMenuItem::with_id(id, text, enabled, checked, accelerator)
+    let auto_start = CheckMenuItem::with_id(MENU_AUTO_START_ID, "Auto Start", true, settings.auto_start, None);
+    let show_console = CheckMenuItem::with_id(MENU_SHOW_CONSOLE_ID, "Show Console", true, settings.show_console, None);
     let open_config = MenuItem::with_id(MENU_OPEN_CONFIG_ID, "Open Config File", true, None);
     let quit = MenuItem::with_id(MENU_QUIT_ID, "Quit", true, None);
     
