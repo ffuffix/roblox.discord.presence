@@ -24,3 +24,4 @@ tao = "0.30"
 # Config persistence
 toml = "0.8"
 auto-launch = "0.5.0"
+windows = { version = "0.62.2", features = ["Win32_System_Console"] }

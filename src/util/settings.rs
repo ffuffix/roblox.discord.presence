@@ -29,16 +29,20 @@ impl Settings {
     }
 
     pub fn load() -> Self {
-        match Self::config_path().as_path() {
-            path if path.exists() => {
-                match fs::read_to_string(path) {
-                    Ok(content) => {
-                        toml::from_str(&content).unwrap_or_default()
-                    }
-                    Err(_) => Self::default(),
-                }
+        let config_path = Self::config_path();
+        if config_path.exists() {
+            match fs::read_to_string(&config_path) {
+                Ok(content) => toml::from_str(&content).unwrap_or_default(),
+                Err(_) => Self::default(),
             }
-            _ => Self::default(),
+        } else {
+            let defaults = Self::default();
+            // Try explicit save so the user sees the file
+            if let Some(parent) = config_path.parent() {
+                 let _ = fs::create_dir_all(parent);
+            }
+            let _ = fs::write(config_path, toml::to_string_pretty(&defaults).unwrap_or_default());
+            defaults
         }
     }
 

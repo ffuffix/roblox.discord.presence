@@ -17,11 +17,16 @@ use tokio::time::{interval, Duration};
 use tao::event_loop::{EventLoop, ControlFlow};
 use tray_icon::menu::MenuEvent;
 use auto_launch::AutoLaunchBuilder;
+use windows::Win32::System::Console::{AllocConsole, FreeConsole};
 
 fn main() {
     let event_loop = EventLoop::new();
     
     let mut settings = Settings::load();
+
+    if settings.show_console {
+        unsafe { let _ = AllocConsole(); }
+    }
     
     let tray_handles = tray::setup_tray(&settings);
     
@@ -70,15 +75,30 @@ fn main() {
                     tray_handles.auto_start.set_checked(settings.auto_start);
                     
                     if settings.auto_start {
-                        let _ = auto.enable();
+                        if let Err(e) = auto.enable() {
+                            notifier::error("Auto Start Error", &format!("Failed to enable: {}", e));
+                            settings.auto_start = false;
+                            tray_handles.auto_start.set_checked(false);
+                            let _ = settings.save();
+                        }
                     } else {
-                        let _ = auto.disable();
+                        if let Err(e) = auto.disable() {
+                            notifier::error("Auto Start Error", &format!("Failed to disable: {}", e));
+                        }
                     }
                 }
                 tray::MENU_SHOW_CONSOLE_ID => {
                     settings.show_console = !settings.show_console;
                     let _ = settings.save();
                     tray_handles.show_console.set_checked(settings.show_console);
+
+                    unsafe {
+                        if settings.show_console {
+                            let _ = AllocConsole();
+                        } else {
+                            let _ = FreeConsole();
+                        }
+                    }
                 }
                 _ => {}
             }
